@@ -290,7 +290,12 @@
         
         <div class="info-box">
             <span class="program-badge">Apple Video Partner Program</span>
-            <p>Ce calculateur est conçu spécialement pour les membres du Apple Video Partner Program, qui bénéficient d'un taux de commission réduit à 10% pour les achats in-app, conformément aux nouvelles règles du DMA en Europe.</p>
+            <p>Ce calculateur est conçu spécialement pour les membres du Apple Video Partner Program, qui bénéficient d'un taux de commission réduit selon la plateforme <strong>uniquement lors de l'utilisation des achats in-app d'Apple</strong> :</p>
+            <ul>
+                <li><strong>iOS/iPadOS</strong> : Commission de 10% + 3% de frais de traitement avec IAP</li>
+                <li><strong>macOS/tvOS/visionOS/watchOS</strong> : Commission de 12% + 3% de frais de traitement avec IAP</li>
+            </ul>
+            <p><strong>Attention :</strong> L'utilisation d'un système de paiement alternatif vous fait sortir du Video Partner Program et vous soumet aux taux standards (17% ou 27% selon la plateforme).</p>
             <p><strong>Note importante</strong> : Pour les achats uniques (pas les abonnements) utilisant un paiement alternatif, un frais d'acquisition supplémentaire de 5% s'applique, conformément aux règles du DMA.</p>
         </div>
         
@@ -404,7 +409,7 @@
                     <div class="result-heading">Option 2: Paiement Alternatif</div>
                     <div id="alternative-results">
                         <div class="fee-detail">
-                            <div class="fee-description">Commission Apple (Video Partner Program)</div>
+                            <div class="fee-description">Commission Apple standard</div>
                             <div class="fee-amount" id="alt-apple-fee">--</div>
                         </div>
                         <div class="fee-detail">
@@ -467,7 +472,7 @@
                         <tr id="video-partner-row">
                             <td>Avantages du Video Partner Program</td>
                             <td>Conservation de tous les avantages (intégration Apple TV, etc.)</td>
-                            <td>Risque de limiter certaines intégrations</td>
+                            <td>Perte de tous les avantages du programme</td>
                             <td>IAP Apple</td>
                         </tr>
                     </tbody>
@@ -547,26 +552,38 @@
             }
             
             function calculateFees(amount, platform, pspRate, mode, productType = 'subscription') {
-                // Fixed Apple base commission rate for Video Partner Program
-                let appleBaseRate = 10; // 10% for Video Partner Program
+                // Base commission rate based on platform for Video Partner Program (for IAP only)
+                let appleIAPRate;
+                if (platform === 'ios-ipados') {
+                    appleIAPRate = 10; // 10% for iOS/iPadOS
+                } else {
+                    appleIAPRate = 12; // 12% for macOS/tvOS/visionOS/watchOS
+                }
+                
+                // Standard commission rate for alternative payment (no Video Partner Program benefits)
+                let appleAltRate;
+                if (platform === 'ios-ipados') {
+                    appleAltRate = 17; // 17% for iOS/iPadOS
+                } else {
+                    appleAltRate = 27; // 27% for macOS/tvOS/visionOS/watchOS
+                }
                 
                 // For single-item with external payment, there's an additional acquisition fee
                 let acquisitionFee = 0;
-                let acquisitionFeeText = "";
                 
                 if (mode === 'item' && productType === 'one-time' && pspRate > 0) {
                     acquisitionFee = 0.05 * amount; // 5% acquisition fee for one-time purchases
                 }
                 
                 // Calculate fees for Apple IAP
-                const appleBaseAmount = (appleBaseRate / 100) * amount;
+                const appleBaseAmount = (appleIAPRate / 100) * amount;
                 const appleProcessingAmount = 0.03 * amount;
                 const appleTotalAmount = appleBaseAmount + appleProcessingAmount;
                 const appleNetRevenue = amount - appleTotalAmount;
                 const appleTotalPercent = (appleTotalAmount / amount) * 100;
                 
                 // Calculate fees for alternative payment
-                const altAppleAmount = (appleBaseRate / 100) * amount;
+                const altAppleAmount = (appleAltRate / 100) * amount;
                 const altPspAmount = (pspRate / 100) * amount;
                 const altTotalAmount = altAppleAmount + altPspAmount + acquisitionFee;
                 const altNetRevenue = amount - altTotalAmount;
@@ -576,13 +593,13 @@
                 const savings = altNetRevenue - appleNetRevenue;
                 
                 // Update Apple IAP results
-                document.getElementById('apple-base-fee').textContent = formatCurrency(appleBaseAmount) + ' (' + appleBaseRate + '%)';
+                document.getElementById('apple-base-fee').textContent = formatCurrency(appleBaseAmount) + ' (' + appleIAPRate + '%)';
                 document.getElementById('apple-processing-fee').textContent = formatCurrency(appleProcessingAmount) + ' (3%)';
                 document.getElementById('apple-total-fee').textContent = formatCurrency(appleTotalAmount) + ' (' + appleTotalPercent.toFixed(1) + '%)';
                 document.getElementById('apple-net-revenue').textContent = formatCurrency(appleNetRevenue);
                 
                 // Update Alternative Payment results
-                document.getElementById('alt-apple-fee').textContent = formatCurrency(altAppleAmount) + ' (' + appleBaseRate + '%)';
+                document.getElementById('alt-apple-fee').textContent = formatCurrency(altAppleAmount) + ' (' + appleAltRate + '%)';
                 document.getElementById('alt-psp-fee').textContent = formatCurrency(altPspAmount) + ' (' + pspRate + '%)';
                 
                 // Update acquisition fee
@@ -648,44 +665,44 @@
                 }
                 
                 // Update conclusion
-                updateConclusion(amount, savings, appleTotalPercent, altTotalPercent, pspRate, mode, productType);
+                updateConclusion(amount, savings, appleTotalPercent, altTotalPercent, pspRate, mode, productType, platform);
             }
             
-            function updateConclusion(amount, savings, applePercent, altPercent, pspRate, mode, productType = 'subscription') {
+            function updateConclusion(amount, savings, applePercent, altPercent, pspRate, mode, productType = 'subscription', platform = 'ios-ipados') {
                 let conclusion = '';
                 const pspBetter = altPercent < applePercent;
                 
+                let platformText = '';
+                if (platform === 'ios-ipados') {
+                    platformText = 'iOS/iPadOS';
+                } else {
+                    platformText = 'macOS/tvOS/visionOS/watchOS';
+                }
+                
                 // Base conclusion on transaction type and other factors
                 if (mode === 'item') {
-                    if (productType === 'one-time') {
-                        if (pspBetter) {
-                            conclusion = `Même avec les frais d'acquisition de 5% pour les achats uniques, le paiement alternatif reste plus avantageux financièrement (économie de ${formatCurrency(savings)} par transaction) pour cet article à ${formatCurrency(amount)}. Cependant, évaluez si cette économie justifie de potentiellement compromettre certains avantages du Video Partner Program.`;
-                        } else {
-                            conclusion = `Pour cet achat unique à ${formatCurrency(amount)}, les IAP d'Apple sont clairement plus avantageux, principalement à cause des frais d'acquisition supplémentaires de 5% pour les paiements alternatifs. Il est recommandé de continuer à utiliser le système de paiement in-app d'Apple.`;
-                        }
-                    } else { // subscription
-                        if (pspBetter) {
-                            conclusion = `Pour cet abonnement à ${formatCurrency(amount)}, le paiement alternatif est plus avantageux financièrement (économie de ${formatCurrency(savings)} par transaction). Cependant, évaluez si cette économie justifie de potentiellement compromettre certains avantages du Video Partner Program.`;
-                        } else {
-                            conclusion = `Pour cet abonnement à ${formatCurrency(amount)}, les IAP d'Apple sont plus avantageux financièrement (économie de ${formatCurrency(Math.abs(savings))} par transaction). De plus, cela vous permet de conserver tous les avantages du Video Partner Program.`;
-                        }
+                    const productTypeText = productType === 'one-time' ? 'achat unique' : 'abonnement';
+                    if (pspBetter) {
+                        conclusion = `Pour ce ${productTypeText} à ${formatCurrency(amount)} sur ${platformText}, le paiement alternatif est plus avantageux financièrement (économie de ${formatCurrency(savings)} par transaction), malgré la perte des avantages du Video Partner Program. Cependant, évaluez si cette économie justifie de potentiellement compromettre certaines intégrations et fonctionnalités.`;
+                    } else {
+                        conclusion = `Pour ce ${productTypeText} à ${formatCurrency(amount)} sur ${platformText}, les IAP d'Apple sont clairement plus avantageux, tant financièrement (économie de ${formatCurrency(Math.abs(savings))} par transaction) que pour conserver les avantages du Video Partner Program. Il est recommandé de continuer à utiliser le système de paiement in-app d'Apple.`;
                     }
                 } else { // monthly revenue
                     if (Math.abs(savings) < 100) {
-                        conclusion = "Pour votre chiffre d'affaires mensuel, les deux options sont très proches d'un point de vue financier. Dans ce cas, il est préférable de privilégier les IAP d'Apple pour conserver les avantages du Video Partner Program, notamment l'intégration avec l'app Apple TV, Universal Search, Siri et autres fonctionnalités.";
+                        conclusion = `Pour votre chiffre d'affaires mensuel sur ${platformText}, les deux options sont très proches d'un point de vue financier. Dans ce cas, il est préférable de privilégier les IAP d'Apple pour conserver les avantages du Video Partner Program, notamment l'intégration avec l'app Apple TV, Universal Search, Siri et autres fonctionnalités.`;
                     } else if (pspBetter) {
                         if (pspRate < 2) {
-                            conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)}, le paiement alternatif est significativement plus avantageux financièrement (économie de ${formatCurrency(savings)} par mois), principalement grâce au taux exceptionnellement bas de votre prestataire de paiement (${pspRate}%). Toutefois, considérez que l'utilisation d'un paiement alternatif pourrait limiter certains avantages du Video Partner Program.`;
+                            conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)} sur ${platformText}, le paiement alternatif est significativement plus avantageux financièrement (économie de ${formatCurrency(savings)} par mois), principalement grâce au taux exceptionnellement bas de votre prestataire de paiement (${pspRate}%). Toutefois, considérez que vous perdrez les avantages du Video Partner Program, ce qui pourrait impacter la découvrabilité et l'intégration de votre application.`;
                         } else {
-                            conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)}, le paiement alternatif est plus avantageux financièrement, avec une économie mensuelle de ${formatCurrency(savings)}. Cependant, évaluez si cette économie justifie de potentiellement compromettre certains avantages du Video Partner Program, comme l'intégration avec l'app Apple TV.`;
+                            conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)} sur ${platformText}, le paiement alternatif est plus avantageux financièrement, avec une économie mensuelle de ${formatCurrency(savings)}. Cependant, évaluez si cette économie justifie de perdre les avantages du Video Partner Program, comme l'intégration avec l'app Apple TV.`;
                         }
                     } else {
-                        conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)}, les IAP d'Apple sont clairement plus avantageux, tant sur le plan financier (économie de ${formatCurrency(Math.abs(savings))} par mois) que pour maintenir tous les avantages du Video Partner Program. Il est préférable de continuer à utiliser le système de paiement in-app d'Apple.`;
+                        conclusion = `Pour votre chiffre d'affaires mensuel de ${formatCurrency(amount)} sur ${platformText}, les IAP d'Apple sont clairement plus avantageux, tant sur le plan financier (économie de ${formatCurrency(Math.abs(savings))} par mois) que pour maintenir tous les avantages du Video Partner Program. Il est préférable de continuer à utiliser le système de paiement in-app d'Apple.`;
                     }
                 }
                 
                 // Add video-specific reminder
-                conclusion += '<br><br><strong>Rappel :</strong> En tant que membre du Video Partner Program, l\'utilisation des IAP vous permet de profiter pleinement des avantages d\'intégration avec les services Apple, ce qui peut avoir un impact significatif sur la découvrabilité et l\'expérience utilisateur de votre application.';
+                conclusion += '<br><br><strong>Rappel :</strong> Opter pour un paiement alternatif vous fait automatiquement sortir du Video Partner Program. Ce choix entraîne non seulement des taux de commission standard plus élevés mais aussi la perte des intégrations avec les services Apple, ce qui peut avoir un impact significatif sur la découvrabilité et l\'expérience utilisateur de votre application.';
                 
                 document.getElementById('conclusion-text').innerHTML = conclusion;
             }
